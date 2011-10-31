@@ -302,7 +302,7 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifdef HAVE_X_WINDOWS
 #include "xterm.h"
 #endif
-#ifdef WINDOWSNT
+#ifdef HAVE_NTGUI
 #include "w32term.h"
 #endif
 #ifdef HAVE_NS
@@ -28672,7 +28672,7 @@ init_xdisp (void)
 
 /* Since w32 does not support atimers, it defines its own implementation of
    the following three functions in w32fns.c.  */
-#ifndef WINDOWSNT
+#ifndef HAVE_NTGUI
 
 /* Platform-independent portion of hourglass implementation. */
 
@@ -28731,4 +28731,4 @@ cancel_hourglass (void)
     hide_hourglass ();
 #endif
 }
-#endif /* ! WINDOWSNT  */
+#endif /* ! HAVE_NTGUI  */

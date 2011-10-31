@@ -4609,6 +4609,8 @@ wait_reading_process_output (int time_limit, int microsecs, int read_kbd,
           nfds = xg_select
 #elif defined (HAVE_NS)
 	  nfds = ns_select
+#elif defined (USE_W32_SELECT)
+          nfds = w32_select  
 #else
 	  nfds = select
 #endif

@@ -130,16 +130,6 @@ extern LPBYTE w32_get_resource (char * key, LPDWORD type);
 extern void init_ntproc (void);
 extern void term_ntproc (void);
 extern void globals_of_w32 (void);
-extern void syms_of_w32term (void);
-extern void syms_of_w32fns (void);
-extern void globals_of_w32fns (void);
-extern void syms_of_w32select (void);
-extern void globals_of_w32select (void);
-extern void term_w32select (void);
-extern void syms_of_w32menu (void);
-extern void globals_of_w32menu (void);
-extern void syms_of_fontset (void);
-extern void syms_of_w32font (void);
 
 extern int _sys_read_ahead (int fd);
 extern int _sys_wait_accept (int fd);

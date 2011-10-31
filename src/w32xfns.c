@@ -20,6 +20,11 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <signal.h>
 #include <stdio.h>
 #include <setjmp.h>
+
+#if CYGWIN
+#include <signal.h>
+#endif
+
 #include "lisp.h"
 #include "keyboard.h"
 #include "frame.h"
@@ -33,7 +38,11 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #define myfree(lp) GlobalFreePtr (lp)
 
 CRITICAL_SECTION critsect;
+
+#if WINDOWSNT
 extern HANDLE keyboard_handle;
+#endif
+
 HANDLE input_available = NULL;
 HANDLE interrupt_handle = NULL;
 
@@ -44,7 +53,11 @@ init_crit (void)
 
   /* For safety, input_available should only be reset by get_next_msg
      when the input queue is empty, so make it a manual reset event. */
-  keyboard_handle = input_available = CreateEvent (NULL, TRUE, FALSE, NULL);
+  input_available = CreateEvent (NULL, TRUE, FALSE, NULL);
+
+#if WINDOWSNT
+  keyboard_handle = input_available;
+#endif
 
   /* interrupt_handle is signaled when quit (C-g) is detected, so that
      blocking system calls can be interrupted.  We make it a manual
@@ -241,6 +254,47 @@ get_next_msg (W32Msg * lpmsg, BOOL bWait)
   return (bRet);
 }
 
+extern char * w32_strerror (int error_no);
+
+/* Tell waiters that we have input available.  Call with lock
+ * held.  */
+static void
+notify_msg_ready (void)
+{
+  SetEvent (input_available);
+  
+#ifdef USE_W32_SELECT
+  {
+    /* Signal main thread that an event is ready.  Use pure Win32 to
+     * do it so as not to quicken the wrath of the undefined
+     * behavior Cygwin gods.  Use overlapped IO because Cygwin
+     * creates pipes as overlapped files in order to select on
+     * them.  */
+      
+    char buf = '\0';
+    DWORD nr_written;
+    OVERLAPPED op;
+    static HANDLE ev = NULL;
+    BOOL status;
+
+    if (ev == NULL) {
+      ev = CreateEvent (NULL, TRUE /*manual-reset*/, FALSE, NULL);
+    }
+    ResetEvent (ev);
+    memset (&op, 0, sizeof(op));
+    op.hEvent = ev;
+    status = WriteFile (w32_evt_write, &buf, sizeof(buf), &nr_written, &op);
+    if (status == FALSE && GetLastError () == ERROR_IO_PENDING) {
+      status = GetOverlappedResult (w32_evt_write, &op, &nr_written, TRUE);
+    }
+
+    if (status == FALSE) {
+      fatal ("writing to evt pipe: %s", w32_strerror (GetLastError ()));
+    }
+  }
+#endif
+}
+
 BOOL
 post_msg (W32Msg * lpmsg)
 {
@@ -264,11 +318,21 @@ post_msg (W32Msg * lpmsg)
     }
 
   lpTail = lpNew;
-  SetEvent (input_available);
-
+  notify_msg_ready ();
   leave_crit ();
 
   return (TRUE);
+}
+
+void
+call_on_main_thread (atimer_callback callback, void* data)
+{
+  W32Msg cbmsg;
+  memset (&cbmsg, 0, sizeof (cbmsg));
+  cbmsg.msg.message = WM_EMACS_MT_CALL;
+  cbmsg.msg.lParam = (LPARAM) callback;
+  memcpy (&cbmsg.rect, &data, sizeof(data));
+  post_msg (&cbmsg);
 }
 
 BOOL
@@ -438,6 +502,6 @@ XParseGeometry (char *string,
 
 /* x_sync is a no-op on W32.  */
 void
-x_sync (void *f)
+x_sync (struct frame *f)
 {
 }

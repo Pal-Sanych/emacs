@@ -27,6 +27,14 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <intprops.h>
 
+#define t(...)                                          \
+    ({                                                  \
+      fprintf (stderr, "T:%s:%u: ",                     \
+               __FUNCTION__, __LINE__);                 \
+      fprintf (stderr, __VA_ARGS__);                    \
+      fputc ('\n', stderr);                             \
+    })
+
 /* Use the configure flag --enable-checking[=LIST] to enable various
    types of run time checks for Lisp objects.  */
 

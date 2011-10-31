@@ -21,7 +21,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <signal.h>
 #include <stdio.h>
-#include <mbstring.h>
 #include <setjmp.h>
 
 #include "lisp.h"
@@ -39,6 +38,12 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 /* This may include sys/types.h, and that somehow loses
    if this is not done before the other system files.  */
 #include "w32term.h"
+
+#if CYGWIN
+#include "cygw32.h"
+#else
+#include <mbstring.h>
+#endif
 
 /* Load sys/types.h if not already loaded.
    In some systems loading it twice is suicidal.  */
@@ -96,6 +101,11 @@ static void utf8to16 (unsigned char *, int, WCHAR *);
 static int fill_in_menu (HMENU, widget_value *);
 
 void w32_free_menu_strings (HWND);
+
+#if CYGWIN
+
+#endif
+
 
 
 /* This is set nonzero after the user activates the menu bar, and set

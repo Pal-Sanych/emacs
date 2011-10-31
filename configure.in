@@ -169,6 +169,7 @@ OPTION_DEFAULT_ON([toolkit-scroll-bars],[don't use Motif or Xaw3d scroll bars])
 OPTION_DEFAULT_ON([xaw3d],[don't use Xaw3d])
 OPTION_DEFAULT_ON([xim],[don't use X11 XIM])
 OPTION_DEFAULT_OFF([ns],[use NeXTstep (Cocoa or GNUstep) windowing system])
+OPTION_DEFAULT_OFF([w32], [use a Win32])
 
 OPTION_DEFAULT_ON([gpm],[don't use -lgpm for mouse support on a GNU/Linux console])
 OPTION_DEFAULT_ON([dbus],[don't compile with D-Bus support])
@@ -1566,6 +1567,7 @@ fail;
     NS_HAVE_NSINTEGER=no
   fi
 fi
+
 AC_SUBST(TEMACS_LDFLAGS2)
 
 ns_frag=/dev/null
@@ -1588,6 +1590,31 @@ AC_SUBST(NS_OBJ)
 AC_SUBST(NS_OBJC_OBJ)
 AC_SUBST(LIB_STANDARD)
 AC_SUBST_FILE(ns_frag)
+
+HAVE_W32=no
+W32_OBJ=
+W32_LIBS=
+if test "${with_w32}" != no; then
+  if test "${opsys}" != "cygwin"; then
+    AC_MSG_ERROR([Using win32 with an autotools build is only supported for Cygwin.])
+  fi
+  AC_CHECK_HEADER([windows.h], [HAVE_W32=yes],
+                  [AC_MSG_ERROR([`--with-w32' was specified, but windows.h
+                  cannot be found.])])
+  AC_DEFINE(HAVE_NTGUI, 1, [Define to use native Windows GUI.])
+  W32_OBJ="w32fns.o w32menu.o w32reg.o w32font.o w32term.o"
+  W32_OBJ="$W32_OBJ w32xfns.o w32select.o w32uniscribe.o"
+  W32_LIBS="$W32_LIBS -lkernel32 -luser32 -lgdi32 -lole32 -lcomdlg32"
+  W32_LIBS="$W32_LIBS -lusp10 -lcomctl32 -lwinspool"
+fi
+AC_SUBST(W32_OBJ)
+AC_SUBST(W32_LIBS)
+
+if test "${HAVE_W32}" = "yes"; then
+  window_system=w32
+  with_xft=no
+fi
+
 
 ## $window_system is now set to the window system we will
 ## ultimately use.  Have config.h include the appropriate header.
@@ -2270,6 +2297,9 @@ if test "${with_toolkit_scroll_bars}" != "no"; then
   elif test "${HAVE_NS}" = "yes"; then
     AC_DEFINE(USE_TOOLKIT_SCROLL_BARS)
     USE_TOOLKIT_SCROLL_BARS=yes
+  elif test "${HAVE_W32}" = "yes"; then
+    AC_DEFINE(USE_TOOLKIT_SCROLL_BARS)
+    USE_TOOLKIT_SCROLL_BARS=yes
   fi
 fi
 
@@ -2622,6 +2652,9 @@ if test "${HAVE_NS}" = "yes"; then
   OTHER_FILES=ns-app
 fi
 
+if test "${HAVE_W32}" = "yes"; then
+  HAVE_MENUS=yes
+fi
 
 ### Use session management (-lSM -lICE) if available
 HAVE_X_SM=no
@@ -3368,7 +3401,7 @@ fi
 AC_SUBST(RALLOC_OBJ)
 
 if test "$opsys" = "cygwin"; then
-  CYGWIN_OBJ="sheap.o"
+  CYGWIN_OBJ="sheap.o cygw32.o"
   ## Cygwin differs because of its unexec().
   PRE_ALLOC_OBJ=
   POST_ALLOC_OBJ=lastfile.o

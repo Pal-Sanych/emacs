@@ -81,10 +81,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #define HAVE_SOCKETS
 
-/* vfork() interacts badly with setsid(), causing ptys to fail to
-   change their controlling terminal */
-#define vfork fork
-
 /* This should work (at least when compiling with gcc).  But I have no way
    or intention to verify or even test it.  If you encounter a problem with
    it, feel free to change this setting, but please add a comment here about
@@ -99,3 +95,23 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* Send signals to subprocesses by "typing" special chars at them.  */
 #define SIGNALS_VIA_CHARACTERS
+
+#ifdef HAVE_NTGUI
+
+/* Work around Cygwin signal bug
+ * <loom.20100428T060408-563@post.gmane.org> */
+#define USE_W32_SELECT
+
+extern int getloadavg (double *, int);
+
+#ifdef EMACSDEBUG
+extern void _DebPrint (const char *fmt, ...);
+#define DebPrint(stuff) _DebPrint stuff
+#else
+#define DebPrint(stuff)
+#endif /* EMACSDEBUG */
+
+#endif /* HAVE_NTGUI */
+
+/* For benefit of normally WINDOWSNT code. */
+

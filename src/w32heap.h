@@ -24,6 +24,26 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <windows.h>
 
+extern int    	      w32_major_version;
+extern int    	      w32_minor_version;
+extern int    	      w32_build_number;
+extern BOOL   	      using_dynamic_heap;
+
+enum {
+  OS_WIN95 = 1,
+  OS_NT
+};
+
+extern int os_subtype;
+
+#define get_w32_major_version()  	w32_major_version
+#define get_w32_minor_version()  	w32_minor_version
+
+/* Cache system info, e.g., the NT page size.  */
+extern void cache_system_info (void);
+
+#if WINDOWSNT
+
 #define ROUND_UP(p, align)   (((DWORD)(p) + (align)-1) & ~((align)-1))
 #define ROUND_DOWN(p, align) ((DWORD)(p) & ~((align)-1))
 
@@ -37,25 +57,12 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 #define get_page_size()			sysinfo_cache.dwPageSize
 #define get_allocation_unit()		sysinfo_cache.dwAllocationGranularity
 #define get_processor_type()		sysinfo_cache.dwProcessorType
-#define get_w32_major_version()  	w32_major_version
-#define get_w32_minor_version()  	w32_minor_version
 
 extern unsigned char *get_data_start (void);
 extern unsigned char *get_data_end (void);
 extern unsigned long  reserved_heap_size;
 extern SYSTEM_INFO    sysinfo_cache;
 extern OSVERSIONINFO  osinfo_cache;
-extern BOOL   	      using_dynamic_heap;
-extern int    	      w32_major_version;
-extern int    	      w32_minor_version;
-extern int    	      w32_build_number;
-
-enum {
-  OS_WIN95 = 1,
-  OS_NT
-};
-
-extern int os_subtype;
 
 /* Emulation of Unix sbrk().  */
 extern void *sbrk (unsigned long size);
@@ -65,9 +72,6 @@ extern void init_heap (void);
 
 /* Round the heap to this size.  */
 extern void round_heap (unsigned long size);
-
-/* Cache system info, e.g., the NT page size.  */
-extern void cache_system_info (void);
 
 /* ----------------------------------------------------------------- */
 /* Useful routines for manipulating memory-mapped files. */
@@ -90,6 +94,8 @@ IMAGE_SECTION_HEADER * find_section (char * name, IMAGE_NT_HEADERS * nt_header);
 /* Return pointer to section header for section containing the given
    relative virtual address. */
 IMAGE_SECTION_HEADER * rva_to_section (DWORD rva, IMAGE_NT_HEADERS * nt_header);
+
+#endif /* WINDOWSNT */
 
 #endif /* NTHEAP_H_ */
 

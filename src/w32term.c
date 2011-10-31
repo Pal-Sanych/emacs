@@ -52,7 +52,14 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "atimer.h"
 #include "keymap.h"
 
+#ifdef WINDOWSNT
 #include "w32heap.h"
+#endif
+
+#ifndef WINDOWSNT
+#include <io.h> /* for get_osfhandle */
+#endif
+
 #include <shellapi.h>
 
 #include "font.h"
@@ -187,6 +194,11 @@ static int volatile input_signal_count;
 #else
 static int input_signal_count;
 #endif
+
+#ifdef USE_W32_SELECT
+int w32_evt_pipe[2] = { -1, -1 };
+HANDLE w32_evt_write;
+#endif /* USE_W32_SELECT */
 
 /* Keyboard code page - may be changed by language-change events.  */
 static int keyboard_codepage;
@@ -4061,12 +4073,27 @@ w32_read_socket (struct terminal *terminal, int expected,
       struct input_event inev;
       int do_help = 0;
 
+      /* DebPrint (("w32_read_socket: %s time:%u\n", */
+      /*            w32_name_of_message (msg.msg.message), */
+      /*            msg.msg.time)); */
+
       EVENT_INIT (inev);
       inev.kind = NO_EVENT;
       inev.arg = Qnil;
 
       switch (msg.msg.message)
 	{
+        case WM_EMACS_MT_CALL:
+          {
+            EMACS_TIME interval;
+            void* data;
+
+            EMACS_SET_SECS_USECS (interval, 0, 0);
+            memcpy (&data, &msg.rect, sizeof(data));
+            start_atimer (ATIMER_RELATIVE, interval,
+                          (atimer_callback)msg.msg.lParam, data);
+          }
+          break;
 	case WM_EMACS_PAINT:
 	  f = x_window_to_frame (dpyinfo, msg.msg.hwnd);
 
@@ -6171,8 +6198,13 @@ w32_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     w32_defined_color (0, "black", &color, 1);
   }
 
-  /* Add the default keyboard.  */
+#ifdef WINDOWSNT
+  /* Add the default keyboard.  When !WINDOWSNT, we're using the
+     standard Emacs console handling machinery and don't need an
+     explicit FD here; w32_select will take care of waking Emacs when
+     we have GUI input.  */
   add_keyboard_wait_descriptor (0);
+#endif
 
   /* Create Fringe Bitmaps and store them for later use.
 
@@ -6182,15 +6214,6 @@ w32_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
      need to bitswap and convert to unsigned shorts before creating
      the bitmaps.  */
   w32_init_fringe (terminal->rif);
-
-#ifdef F_SETOWN
-  fcntl (connection, F_SETOWN, getpid ());
-#endif /* ! defined (F_SETOWN) */
-
-#ifdef SIGIO
-  if (interrupt_input)
-    init_sigio (connection);
-#endif /* ! defined (SIGIO) */
 
   UNBLOCK_INPUT;
 
@@ -6241,6 +6264,46 @@ x_delete_display (struct w32_display_info *dpyinfo)
 
   w32_reset_fringes ();
 }
+
+
+/* Event loop integration when we're not running on bare NT. */
+
+#ifdef USE_W32_SELECT
+
+/* Unless we're a native Windows program, we're integrated into normal
+ * Emacs event loop.  This function is just like select, but also
+ * returns when we have pending Win32 events. */
+int
+w32_select (int nfds, fd_set *readfds, fd_set *writefds,
+            fd_set *exceptfds, struct timeval *timeout)
+{
+  fd_set modified_readfds;
+  char buf;
+
+  if (w32_evt_pipe[0] == -1) {
+    return select (nfds, readfds, writefds, exceptfds, timeout);
+  }
+
+  modified_readfds = *readfds;
+  FD_SET (w32_evt_pipe[0],  &modified_readfds);
+  nfds = select (max (nfds, w32_evt_pipe[0] + 1),
+                 &modified_readfds, writefds, exceptfds, timeout);
+  if (nfds < 1) {
+    return nfds;
+  }
+
+  if (FD_ISSET (w32_evt_pipe[0], &modified_readfds)) {
+    FD_CLR (w32_evt_pipe[0], &modified_readfds);
+    read (w32_evt_pipe[0], &buf, sizeof(buf));
+  }
+
+  *readfds = modified_readfds;
+  return nfds;
+}
+
+
+#endif /* USE_W32_SELECT */
+
 
 /* Set up use of W32.  */
 
@@ -6277,6 +6340,15 @@ w32_initialize (void)
       if (set_user_model)
 	set_user_model (L"GNU.Emacs");
     }
+
+#ifdef USE_W32_SELECT
+  if (pipe (w32_evt_pipe)) {
+    fatal ("pipe: %s", strerror (errno));
+  }
+  fcntl (w32_evt_pipe[0], F_SETFD, FD_CLOEXEC);
+  fcntl (w32_evt_pipe[1], F_SETFD, FD_CLOEXEC);
+  w32_evt_write = (HANDLE)get_osfhandle (w32_evt_pipe[1]);
+#endif /* USE_W32_SELET */
 
   /* Initialize w32_use_visible_system_caret based on whether a screen
      reader is in use.  */
@@ -6437,4 +6509,6 @@ With MS Windows, the value is t.  */);
 
   staticpro (&last_mouse_motion_frame);
   last_mouse_motion_frame = Qnil;
+
+  Fprovide (intern_c_string ("w32"), Qnil);
 }

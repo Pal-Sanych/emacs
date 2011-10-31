@@ -567,7 +567,7 @@ static void x_laplace (struct frame *, struct image *);
 static void x_emboss (struct frame *, struct image *);
 static int x_build_heuristic_mask (struct frame *, struct image *,
                                    Lisp_Object);
-#ifdef HAVE_NTGUI
+#if WINDOWSNT
 #define CACHE_IMAGE_TYPE(type, status) \
   do { Vlibrary_cache = Fcons (Fcons (type, status), Vlibrary_cache); } while (0)
 #else
@@ -2941,7 +2941,7 @@ xbm_load (struct frame *f, struct image *img)
 	  else
 	    bits = (char *) XBOOL_VECTOR (data)->data;
 
-#ifdef WINDOWSNT
+#ifdef HAVE_NTGUI
           {
             char *invertedBits;
             int nbytes, i;
@@ -8737,7 +8737,7 @@ Libraries to load are specified in alist LIBRARIES (usually, the value
 of `dynamic-library-alist', which see).  */)
   (Lisp_Object type, Lisp_Object libraries)
 {
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
   /* Don't try to reload the library.  */
   Lisp_Object tested = Fassq (type, Vlibrary_cache);
   if (CONSP (tested))
