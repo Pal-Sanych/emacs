@@ -4510,7 +4510,10 @@ If omitted or nil, that stands for the selected frame's display.  */)
   if (dpyinfo->has_palette)
     cap = GetDeviceCaps (hdc, SIZEPALETTE);
   else
-    cap = GetDeviceCaps (hdc, NUMCOLORS);
+    // GetDeviceCaps (NUMCOLORS) is buggy under remote desktop and sometimes
+    // returns the number of system reserved colors (20) instead of
+    // the actual number of available colors.
+    cap = -1;
 
   /* We force 24+ bit depths to 24-bit, both to prevent an overflow
      and because probably is more meaningful on Windows anyway */
