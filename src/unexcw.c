@@ -31,6 +31,8 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #define DOTEXE ".exe"
 
+extern void report_sheap_usage (int);
+
 extern int bss_sbrk_did_unexec;
 
 extern int __malloc_initialized;
