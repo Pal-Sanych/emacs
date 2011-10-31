@@ -48,8 +48,10 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <sys/stat.h>
 
 /* Needed for SunOS4, for instance.  */
+#if !defined(CYGWIN)
 extern char *optarg;
 extern int optind, opterr;
+#endif // !defined(CYGWIN)
 
 static int usage (int err) NO_RETURN;
 
