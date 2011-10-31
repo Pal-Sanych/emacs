@@ -1417,10 +1417,14 @@ AC_SYS_LONG_FILE_NAMES
 
 #### Choose a window system.
 
+## We leave window_system equal to none if
+## we end up building without one.  Any new window system should
+## set window_system to an appropriate value and add objects to
+## window-system-specific substs.
+
+window_system=none
 AC_PATH_X
-if test "$no_x" = yes; then
-  window_system=none
-else
+if test "$no_x" != yes; then
   window_system=x11
 fi
 
@@ -1569,7 +1573,6 @@ NS_OBJ=
 NS_OBJC_OBJ=
 if test "${HAVE_NS}" = yes; then
   window_system=nextstep
-  with_xft=no
   # set up packaging dirs
   if test "${EN_NS_SELF_CONTAINED}" = yes; then
      prefix=${ns_appresdir}
@@ -1577,7 +1580,6 @@ if test "${HAVE_NS}" = yes; then
      libexecdir=${ns_appbindir}/libexec
   fi
   ns_frag=$srcdir/src/ns.mk
-  NS_OBJ="fontset.o fringe.o image.o"
   NS_OBJC_OBJ="nsterm.o nsfns.o nsmenu.o nsselect.o nsimage.o nsfont.o"
 fi
 CFLAGS="$tmp_CFLAGS"
@@ -1586,6 +1588,15 @@ AC_SUBST(NS_OBJ)
 AC_SUBST(NS_OBJC_OBJ)
 AC_SUBST(LIB_STANDARD)
 AC_SUBST_FILE(ns_frag)
+
+## $window_system is now set to the window system we will
+## ultimately use.  Have config.h include the appropriate header.
+
+wsysfile="w/${window_system}.h"
+W_FILE="\$(srcdir)/${wsysfile}"
+AC_SUBST(W_FILE)
+AC_DEFINE_UNQUOTED(config_wsysfile, "${wsysfile}",
+                  [Define to the used window-system-dependent file.])
 
 case "${window_system}" in
   x11 )
@@ -1606,7 +1617,7 @@ dnl use the toolkit if we have gtk, or X11R5 or newer.
       * ) USE_X_TOOLKIT=maybe ;;
     esac
   ;;
-  nextstep | none )
+  * )
     HAVE_X_WINDOWS=no
     HAVE_X11=no
     USE_X_TOOLKIT=none
@@ -3229,7 +3240,7 @@ if test "${HAVE_X_WINDOWS}" = "yes" ; then
   AC_DEFINE(HAVE_X_WINDOWS, 1,
 	    [Define to 1 if you want to use the X window system.])
   XMENU_OBJ=xmenu.o
-  XOBJ="xterm.o xfns.o xselect.o xrdb.o fontset.o xsmfns.o fringe.o image.o xsettings.o xgselect.o"
+  XOBJ="xterm.o xfns.o xselect.o xrdb.o xsmfns.o xsettings.o xgselect.o"
   FONT_OBJ=xfont.o
   if test "$HAVE_XFT" = "yes"; then
     FONT_OBJ="$FONT_OBJ ftfont.o xftfont.o ftxfont.o"
@@ -3506,13 +3517,14 @@ if test "x$GCC" = "xyes" && test "x$ORDINARY_LINK" != "xyes"; then
 fi                              dnl if $GCC
 AC_SUBST(LIB_GCC)
 
-
-## If we're using X11/GNUstep, define some consequences.
-if test "$HAVE_X_WINDOWS" = "yes" || test "$HAVE_NS" = "yes"; then
+## Common for all window systems
+if test "$window_system" != "none"; then
   AC_DEFINE(HAVE_WINDOW_SYSTEM, 1, [Define if you have a window system.])
   AC_DEFINE(HAVE_MOUSE, 1, [Define if you have mouse support.])
+  WINDOW_SYSTEM_OBJ="fontset.o fringe.o image.o"
 fi
 
+AC_SUBST(WINDOW_SYSTEM_OBJ)
 
 AH_TOP([/* GNU Emacs site configuration template file.
 
@@ -3567,6 +3579,9 @@ AH_BOTTOM([
 #ifdef config_machfile
 # include config_machfile
 #endif
+
+/* Include the window-system-dependent file.  */
+#include config_wsysfile
 
 /* GNUstep needs a bit more pure memory.  Of the existing knobs,
    SYSTEM_PURESIZE_EXTRA seems like the least likely to cause problems.

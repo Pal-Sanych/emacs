@@ -31,6 +31,10 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "lisp.h"
 
+#ifdef HAVE_WINDOW_SYSTEM
+#include TERM_HEADER
+#endif /* HAVE_WINDOW_SYSTEM */
+
 #ifdef WINDOWSNT
 #include <fcntl.h>
 #include <windows.h> /* just for w32.h */
@@ -59,14 +63,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #ifdef HAVE_GNUTLS
 #include "gnutls.h"
-#endif
-
-#ifdef HAVE_NS
-#include "nsterm.h"
-#endif
-
-#ifdef HAVE_X_WINDOWS
-#include "xterm.h"
 #endif
 
 #ifdef HAVE_SETLOCALE
