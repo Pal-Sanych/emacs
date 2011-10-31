@@ -1163,6 +1163,8 @@ extern void x_free_frame_resources (struct frame *);
 extern char *x_get_resource_string (const char *, const char *);
 #endif
 
+extern void x_query_colors (struct frame *f, XColor *, int);
+
 /* In xmenu.c */
 extern void set_frame_menubar (FRAME_PTR, int, int);
 
