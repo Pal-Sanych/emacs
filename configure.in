@@ -1615,28 +1615,29 @@ if test "${HAVE_W32}" = "yes"; then
   with_xft=no
 fi
 
-
 ## $window_system is now set to the window system we will
-## ultimately use.  Have config.h include the appropriate header.
+## ultimately use.
 
-wsysfile="w/${window_system}.h"
-W_FILE="\$(srcdir)/${wsysfile}"
-AC_SUBST(W_FILE)
-AC_DEFINE_UNQUOTED(config_wsysfile, "${wsysfile}",
-                  [Define to the used window-system-dependent file.])
+term_header=
+HAVE_X_WINDOWS=no
+HAVE_X11=no
+USE_X_TOOLKIT=none
 
 case "${window_system}" in
   x11 )
     HAVE_X_WINDOWS=yes
     HAVE_X11=yes
+    term_header=xterm.h
     case "${with_x_toolkit}" in
       athena | lucid ) USE_X_TOOLKIT=LUCID ;;
       motif ) USE_X_TOOLKIT=MOTIF ;;
       gtk ) with_gtk=yes
+            term_header=gtkutil.h
 dnl Don't set this for GTK.  A lot of tests below assumes Xt when
 dnl USE_X_TOOLKIT is set.
             USE_X_TOOLKIT=none ;;
       gtk3 ) with_gtk3=yes
+             term_header=gtkutil.h
              USE_X_TOOLKIT=none ;;
       no ) USE_X_TOOLKIT=none ;;
 dnl If user did not say whether to use a toolkit, make this decision later:
@@ -1644,12 +1645,18 @@ dnl use the toolkit if we have gtk, or X11R5 or newer.
       * ) USE_X_TOOLKIT=maybe ;;
     esac
   ;;
-  * )
-    HAVE_X_WINDOWS=no
-    HAVE_X11=no
-    USE_X_TOOLKIT=none
+  nextstep )
+    term_header=nsterm.h
+  ;;
+  w32 )
+    term_header=w32term.h
   ;;
 esac
+
+if test -n "${term_header}"; then
+    AC_DEFINE_UNQUOTED(TERM_HEADER, "${term_header}",
+        [Define to the header for the built-in window system.])
+fi
 
 if test "$window_system" = none && test "X$with_x" != "Xno"; then
    AC_CHECK_PROG(HAVE_XSERVER, X, true, false)
@@ -3649,9 +3656,6 @@ AH_BOTTOM([
 #ifdef config_machfile
 # include config_machfile
 #endif
-
-/* Include the window-system-dependent file.  */
-#include config_wsysfile
 
 /* GNUstep needs a bit more pure memory.  Of the existing knobs,
    SYSTEM_PURESIZE_EXTRA seems like the least likely to cause problems.
