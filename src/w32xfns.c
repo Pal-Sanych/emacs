@@ -21,10 +21,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <stdio.h>
 #include <setjmp.h>
 
-#if CYGWIN
-#include <signal.h>
-#endif
-
 #include "lisp.h"
 #include "keyboard.h"
 #include "frame.h"
@@ -263,25 +259,30 @@ notify_msg_ready (void)
 {
   SetEvent (input_available);
   
-#ifdef USE_W32_SELECT
+#ifdef CYGWIN
   {
-    /* Signal main thread that an event is ready.  Use pure Win32 to
-     * do it so as not to quicken the wrath of the undefined
-     * behavior Cygwin gods.  Use overlapped IO because Cygwin
-     * creates pipes as overlapped files in order to select on
-     * them.  */
-      
-    char buf = '\0';
+    /* Signal main thread that an event is ready.  Use pure win32 calls to
+     * do it because we're not running in a thread set up by Cygwin, and
+     * the result of running Cygwin code in such a thread is undefined.
+     *
+     * We need the event here because Cygwin creates its pipe handles
+     * using FILE_FLAG_OVERLAPPED, forcing us to use overlapped IO
+     * ourselves.  */
+    
+    char buf = '\0'; /* Arbitrary byte.  */
     DWORD nr_written;
-    OVERLAPPED op;
+    OVERLAPPED op = { 0 };
     static HANDLE ev = NULL;
     BOOL status;
 
     if (ev == NULL) {
       ev = CreateEvent (NULL, TRUE /*manual-reset*/, FALSE, NULL);
+      if (!ev) {
+        fatal ("CreateEvent: %s", w32_strerror (GetLastError ()));
+      }
     }
+    
     ResetEvent (ev);
-    memset (&op, 0, sizeof(op));
     op.hEvent = ev;
     status = WriteFile (w32_evt_write, &buf, sizeof(buf), &nr_written, &op);
     if (status == FALSE && GetLastError () == ERROR_IO_PENDING) {
@@ -292,7 +293,7 @@ notify_msg_ready (void)
       fatal ("writing to evt pipe: %s", w32_strerror (GetLastError ()));
     }
   }
-#endif
+#endif /* CYGWIN */
 }
 
 BOOL

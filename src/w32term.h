@@ -757,18 +757,13 @@ extern void syms_of_w32fns (void);
 extern void globals_of_w32menu (void);
 extern void globals_of_w32fns (void);
 
-#ifdef USE_W32_SELECT
-
-/* Ordinarily, we'd just send SIGALRM to ourselves when we have input,
- * terminating a normal select call with EINTR.  However, Cygwin has a
- * known bug [1] that causes us to crash when sending a signal to our
- * main thread from our message pump thread.  The workaround is to use
- * an old-fashioned self-pipe.
+/* Ordinarily, we'd just send SIGIO to ourselves when we have input,
+ * terminating the main thread's normal select call with EINTR.
+ * However, Cygwin has a known bug [1] that causes us to crash when
+ * sending a signal to our main thread from our message pump thread.
+ * The workaround is to use an old-fashioned self-pipe.
  *
  * [1] <loom.20100428T060408-563@post.gmane.org>
  */
 extern int w32_evt_pipe[2];
 extern HANDLE w32_evt_write;
-extern int w32_select (int nfds, fd_set *readfds, fd_set *writefds,
-                       fd_set *exceptfds, struct timeval *timeout);
-#endif /* USE_W32_SELECT */

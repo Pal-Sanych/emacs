@@ -195,10 +195,8 @@ static int volatile input_signal_count;
 static int input_signal_count;
 #endif
 
-#ifdef USE_W32_SELECT
 int w32_evt_pipe[2] = { -1, -1 };
 HANDLE w32_evt_write;
-#endif /* USE_W32_SELECT */
 
 /* Keyboard code page - may be changed by language-change events.  */
 static int keyboard_codepage;
@@ -4054,6 +4052,7 @@ w32_read_socket (struct terminal *terminal, int expected,
   struct frame *f;
   struct w32_display_info *dpyinfo = &one_w32_display_info;
   Mouse_HLInfo *hlinfo = &dpyinfo->mouse_highlight;
+  static char buf[1];
 
   if (interrupt_input_blocked)
     {
@@ -4066,6 +4065,12 @@ w32_read_socket (struct terminal *terminal, int expected,
 
   /* So people can tell when we have read the available input.  */
   input_signal_count++;
+
+#ifdef CYGWIN
+  /* Drain the byte written to the pipe by notify_msg_ready.  The pipe
+     is non-blocking.  */
+  (void) read (w32_evt_pipe[0], buf, sizeof (buf));
+#endif /* CYGWIN */
 
   /* TODO: ghostscript integration. */
   while (get_next_msg (&msg, FALSE))
@@ -4090,6 +4095,8 @@ w32_read_socket (struct terminal *terminal, int expected,
 
             EMACS_SET_SECS_USECS (interval, 0, 0);
             memcpy (&data, &msg.rect, sizeof(data));
+            /* Use an atimer to defer the callback to a time and place
+               we know to be safe for running arbitrary Lisp code.  */
             start_atimer (ATIMER_RELATIVE, interval,
                           (atimer_callback)msg.msg.lParam, data);
           }
@@ -6201,10 +6208,16 @@ w32_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 #ifdef WINDOWSNT
   /* Add the default keyboard.  When !WINDOWSNT, we're using the
      standard Emacs console handling machinery and don't need an
-     explicit FD here; w32_select will take care of waking Emacs when
-     we have GUI input.  */
+     explicit FD here.  */
   add_keyboard_wait_descriptor (0);
 #endif
+
+#ifdef CYGWIN
+  /* See comment in w32term.h for why we need this pipe.  We only
+     support one w32 display, so we don't need to worry about this
+     code running more than once.  */
+  add_keyboard_wait_descriptor (w32_evt_pipe[0]);
+#endif /* CYGWIN */
 
   /* Create Fringe Bitmaps and store them for later use.
 
@@ -6266,45 +6279,6 @@ x_delete_display (struct w32_display_info *dpyinfo)
 }
 
 
-/* Event loop integration when we're not running on bare NT. */
-
-#ifdef USE_W32_SELECT
-
-/* Unless we're a native Windows program, we're integrated into normal
- * Emacs event loop.  This function is just like select, but also
- * returns when we have pending Win32 events. */
-int
-w32_select (int nfds, fd_set *readfds, fd_set *writefds,
-            fd_set *exceptfds, struct timeval *timeout)
-{
-  fd_set modified_readfds;
-  char buf;
-
-  if (w32_evt_pipe[0] == -1) {
-    return select (nfds, readfds, writefds, exceptfds, timeout);
-  }
-
-  modified_readfds = *readfds;
-  FD_SET (w32_evt_pipe[0],  &modified_readfds);
-  nfds = select (max (nfds, w32_evt_pipe[0] + 1),
-                 &modified_readfds, writefds, exceptfds, timeout);
-  if (nfds < 1) {
-    return nfds;
-  }
-
-  if (FD_ISSET (w32_evt_pipe[0], &modified_readfds)) {
-    FD_CLR (w32_evt_pipe[0], &modified_readfds);
-    read (w32_evt_pipe[0], &buf, sizeof(buf));
-  }
-
-  *readfds = modified_readfds;
-  return nfds;
-}
-
-
-#endif /* USE_W32_SELECT */
-
-
 /* Set up use of W32.  */
 
 DWORD WINAPI w32_msg_worker (void * arg);
@@ -6341,14 +6315,13 @@ w32_initialize (void)
 	set_user_model (L"GNU.Emacs");
     }
 
-#ifdef USE_W32_SELECT
-  if (pipe (w32_evt_pipe)) {
-    fatal ("pipe: %s", strerror (errno));
+#ifdef CYGWIN
+  if (pipe2 (w32_evt_pipe, O_CLOEXEC | O_NONBLOCK)) {
+    fatal ("pipe2: %s", strerror (errno));
   }
-  fcntl (w32_evt_pipe[0], F_SETFD, FD_CLOEXEC);
-  fcntl (w32_evt_pipe[1], F_SETFD, FD_CLOEXEC);
-  w32_evt_write = (HANDLE)get_osfhandle (w32_evt_pipe[1]);
-#endif /* USE_W32_SELET */
+  
+  w32_evt_write = (HANDLE) get_osfhandle (w32_evt_pipe[1]);
+#endif /* CYGWIN */
 
   /* Initialize w32_use_visible_system_caret based on whether a screen
      reader is in use.  */

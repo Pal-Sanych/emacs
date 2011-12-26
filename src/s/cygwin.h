@@ -98,10 +98,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #ifdef HAVE_NTGUI
 
-/* Work around Cygwin signal bug
- * <loom.20100428T060408-563@post.gmane.org> */
-#define USE_W32_SELECT
-
 extern int getloadavg (double *, int);
 
 #ifdef EMACSDEBUG
