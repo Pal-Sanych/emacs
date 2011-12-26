@@ -351,7 +351,7 @@ prepend_msg (W32Msg *lpmsg)
   nQueue++;
   lpNew->lpNext = lpHead;
   lpHead = lpNew;
-
+  notify_msg_ready ();
   leave_crit ();
 
   return (TRUE);
