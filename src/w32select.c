@@ -82,6 +82,11 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "coding.h"
 #include "composite.h"
 
+#ifdef CYGWIN
+#include <string.h>
+#include <stdio.h>
+#define _memccpy memccpy
+#endif
 
 static HGLOBAL convert_to_handle_as_ascii (void);
 static HGLOBAL convert_to_handle_as_coded (Lisp_Object coding_system);
@@ -419,6 +424,8 @@ lisp_error_handler (Lisp_Object error)
 static LRESULT CALLBACK
 owner_callback (HWND win, UINT msg, WPARAM wp, LPARAM lp)
 {
+  t ("hello");
+  
   switch (msg)
     {
     case WM_RENDERFORMAT:

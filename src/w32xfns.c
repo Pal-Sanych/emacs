@@ -252,14 +252,22 @@ get_next_msg (W32Msg * lpmsg, BOOL bWait)
 
 extern char * w32_strerror (int error_no);
 
-/* Tell waiters that we have input available.  Call with lock
- * held.  */
+/* Tell the main thread that we have input available; if the main
+   thread is blocked in select(), we wake it up here.  */
 static void
 notify_msg_ready (void)
 {
   SetEvent (input_available);
-  
+
 #ifdef CYGWIN
+  
+#ifdef DEV_WINDOWS
+  /* Wakes up the main thread, which is blocked select()ing for /dev/windows,
+     among other files.  */
+  (void) PostThreadMessage (dwMainThreadId, WM_EMACS_INPUT_READY, 0, 0);
+#endif /* DEV_WINDOWS */
+
+#ifdef EVTPIPE
   {
     /* Signal main thread that an event is ready.  Use pure win32 calls to
      * do it because we're not running in a thread set up by Cygwin, and
@@ -293,6 +301,8 @@ notify_msg_ready (void)
       fatal ("writing to evt pipe: %s", w32_strerror (GetLastError ()));
     }
   }
+#endif /* EVTPIPE */
+  
 #endif /* CYGWIN */
 }
 

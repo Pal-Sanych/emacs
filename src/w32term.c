@@ -195,8 +195,14 @@ static int volatile input_signal_count;
 static int input_signal_count;
 #endif
 
+#ifdef EVTPIPE
 int w32_evt_pipe[2] = { -1, -1 };
 HANDLE w32_evt_write;
+#endif /* EVTPIPE */
+
+#ifdef DEV_WINDOWS
+int w32_message_fd = -1;
+#endif /* DEV_WINDOWS */
 
 /* Keyboard code page - may be changed by language-change events.  */
 static int keyboard_codepage;
@@ -4067,9 +4073,18 @@ w32_read_socket (struct terminal *terminal, int expected,
   input_signal_count++;
 
 #ifdef CYGWIN
+
+#ifdef EVTPIPE
   /* Drain the byte written to the pipe by notify_msg_ready.  The pipe
      is non-blocking.  */
   (void) read (w32_evt_pipe[0], buf, sizeof (buf));
+#endif /* EVTPIPE */
+
+#ifdef DEV_WINDOWS
+  /* Process incoming messages.  */
+  drain_message_queue ();
+#endif /* DEV_WINDOWS */
+  
 #endif /* CYGWIN */
 
   /* TODO: ghostscript integration. */
@@ -6210,14 +6225,21 @@ w32_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
      standard Emacs console handling machinery and don't need an
      explicit FD here.  */
   add_keyboard_wait_descriptor (0);
-#endif
+#elif CYGWIN
 
-#ifdef CYGWIN
+#ifdef EVTPIPE
   /* See comment in w32term.h for why we need this pipe.  We only
      support one w32 display, so we don't need to worry about this
      code running more than once.  */
   add_keyboard_wait_descriptor (w32_evt_pipe[0]);
-#endif /* CYGWIN */
+#endif /* EVTPIPE */
+
+#ifdef DEV_WINDOWS
+  /* /dev/windows wakes us up when we have a thread message pending.  */
+  add_keyboard_wait_descriptor (w32_message_fd);
+#endif /* DEV_WINDOWS */
+  
+#endif
 
   /* Create Fringe Bitmaps and store them for later use.
 
@@ -6316,11 +6338,20 @@ w32_initialize (void)
     }
 
 #ifdef CYGWIN
+
+#ifdef DEV_WINDOWS
+  if ((w32_message_fd = open ("/dev/windows", O_RDWR | O_CLOEXEC)) == -1)
+    fatal ("opening /dev/windows: %s", strerror (errno));
+#endif /* DEV_WINDOWS */
+
+#ifdef EVTPIPE
   if (pipe2 (w32_evt_pipe, O_CLOEXEC | O_NONBLOCK)) {
     fatal ("pipe2: %s", strerror (errno));
   }
-  
+
   w32_evt_write = (HANDLE) get_osfhandle (w32_evt_pipe[1]);
+#endif /* EVTPIPE */
+  
 #endif /* CYGWIN */
 
   /* Initialize w32_use_visible_system_caret based on whether a screen
