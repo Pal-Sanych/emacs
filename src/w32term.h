@@ -22,8 +22,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "frame.h"
 #include "atimer.h"
 
-#define DEV_WINDOWS 1
-
 
 #define BLACK_PIX_DEFAULT(f) PALETTERGB(0,0,0)
 #define WHITE_PIX_DEFAULT(f) PALETTERGB(255,255,255)
@@ -769,15 +767,6 @@ extern void globals_of_w32fns (void);
  * [1] <loom.20100428T060408-563@post.gmane.org>
  */
 #ifdef CYGWIN
-
-#ifdef EVTPIPE
-extern int w32_evt_pipe[2];
-extern HANDLE w32_evt_write;
-#endif /* EVTPIPE */
-
-#ifdef DEV_WINDOWS
 extern int w32_message_fd;
-#endif /* DEV_WINDOWS */
-          
 #endif /* CYGWIN */
 

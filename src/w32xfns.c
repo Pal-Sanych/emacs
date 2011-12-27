@@ -260,49 +260,9 @@ notify_msg_ready (void)
   SetEvent (input_available);
 
 #ifdef CYGWIN
-  
-#ifdef DEV_WINDOWS
   /* Wakes up the main thread, which is blocked select()ing for /dev/windows,
      among other files.  */
   (void) PostThreadMessage (dwMainThreadId, WM_EMACS_INPUT_READY, 0, 0);
-#endif /* DEV_WINDOWS */
-
-#ifdef EVTPIPE
-  {
-    /* Signal main thread that an event is ready.  Use pure win32 calls to
-     * do it because we're not running in a thread set up by Cygwin, and
-     * the result of running Cygwin code in such a thread is undefined.
-     *
-     * We need the event here because Cygwin creates its pipe handles
-     * using FILE_FLAG_OVERLAPPED, forcing us to use overlapped IO
-     * ourselves.  */
-    
-    char buf = '\0'; /* Arbitrary byte.  */
-    DWORD nr_written;
-    OVERLAPPED op = { 0 };
-    static HANDLE ev = NULL;
-    BOOL status;
-
-    if (ev == NULL) {
-      ev = CreateEvent (NULL, TRUE /*manual-reset*/, FALSE, NULL);
-      if (!ev) {
-        fatal ("CreateEvent: %s", w32_strerror (GetLastError ()));
-      }
-    }
-    
-    ResetEvent (ev);
-    op.hEvent = ev;
-    status = WriteFile (w32_evt_write, &buf, sizeof(buf), &nr_written, &op);
-    if (status == FALSE && GetLastError () == ERROR_IO_PENDING) {
-      status = GetOverlappedResult (w32_evt_write, &op, &nr_written, TRUE);
-    }
-
-    if (status == FALSE) {
-      fatal ("writing to evt pipe: %s", w32_strerror (GetLastError ()));
-    }
-  }
-#endif /* EVTPIPE */
-  
 #endif /* CYGWIN */
 }
 
