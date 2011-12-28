@@ -428,7 +428,7 @@ extern int waiting_for_input;
    happens.  */
 extern EMACS_TIME *input_available_clear_time;
 
-#if defined HAVE_WINDOW_SYSTEM && !defined USE_FRAME_EXTERNAL_TOOL_BAR
+#if defined HAVE_WINDOW_SYSTEM
 extern int ignore_mouse_drag_p;
 #endif
 

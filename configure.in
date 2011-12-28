@@ -1632,12 +1632,10 @@ case "${window_system}" in
       athena | lucid ) USE_X_TOOLKIT=LUCID ;;
       motif ) USE_X_TOOLKIT=MOTIF ;;
       gtk ) with_gtk=yes
-            term_header=gtkutil.h
 dnl Don't set this for GTK.  A lot of tests below assumes Xt when
 dnl USE_X_TOOLKIT is set.
             USE_X_TOOLKIT=none ;;
       gtk3 ) with_gtk3=yes
-             term_header=gtkutil.h
              USE_X_TOOLKIT=none ;;
       no ) USE_X_TOOLKIT=none ;;
 dnl If user did not say whether to use a toolkit, make this decision later:
@@ -1652,11 +1650,6 @@ dnl use the toolkit if we have gtk, or X11R5 or newer.
     term_header=w32term.h
   ;;
 esac
-
-if test -n "${term_header}"; then
-    AC_DEFINE_UNQUOTED(TERM_HEADER, "${term_header}",
-        [Define to the header for the built-in window system.])
-fi
 
 if test "$window_system" = none && test "X$with_x" != "Xno"; then
    AC_CHECK_PROG(HAVE_XSERVER, X, true, false)
@@ -1970,6 +1963,7 @@ if test "${with_gtk3}" = "yes"; then
   fi
   AC_DEFINE(HAVE_GTK3, 1, [Define to 1 if using GTK 3 or later.])
   GTK_OBJ=emacsgtkfixed.o
+  term_header=gtkutil.h
 fi
 
 if test "$pkg_check_gtk" != "yes"; then
@@ -2048,6 +2042,8 @@ if test "${HAVE_GTK}" = "yes"; then
                  gtk_widget_get_mapped gtk_adjustment_get_page_size \
                  gtk_orientable_set_orientation \
 		 gtk_window_set_has_resize_grip)
+
+ term_header=gtkutil.h                
 fi
 
 dnl D-Bus has been tested under GNU/Linux only.  Must be adapted for
@@ -3298,6 +3294,11 @@ AC_SUBST(ns_appresdir)
 AC_SUBST(ns_appsrc)
 AC_SUBST(GNU_OBJC_CFLAGS)
 AC_SUBST(OTHER_FILES)
+
+if test -n "${term_header}"; then
+    AC_DEFINE_UNQUOTED(TERM_HEADER, "${term_header}",
+        [Define to the header for the built-in window system.])
+fi
 
 AC_DEFINE_UNQUOTED(EMACS_CONFIGURATION,  "${canonical}",
 		   [Define to the canonical Emacs configuration name.])
