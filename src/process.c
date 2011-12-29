@@ -4304,6 +4304,10 @@ wait_reading_process_output (int time_limit, int microsecs, int read_kbd,
   int got_some_input = 0;
   int count = SPECPDL_INDEX ();
 
+#ifdef SIGALRM
+  SIGMASKTYPE mask;
+#endif /* SIGALRM */
+
   FD_ZERO (&Available);
   FD_ZERO (&Writeok);
 
@@ -4606,6 +4610,14 @@ wait_reading_process_output (int time_limit, int microsecs, int read_kbd,
 	    }
 #endif
 
+#ifdef SIGALRM
+          /* We don't want SIGALRM going off while we're blocked in
+             select.  If there any any pending timers, timeout has
+             been set appropriately already and we'll wake up
+             automatically.  */
+          mask = sigblock (sigmask (SIGALRM));
+#endif /* SIGALRM */
+
 #if defined (USE_GTK) || defined (HAVE_GCONF) || defined (HAVE_GSETTINGS)
           nfds = xg_select
 #elif defined (HAVE_NS)
@@ -4617,6 +4629,10 @@ wait_reading_process_output (int time_limit, int microsecs, int read_kbd,
              &Available,
              (check_write ? &Writeok : (SELECT_TYPE *)0),
              (SELECT_TYPE *)0, &timeout);
+
+#ifdef SIGALRM
+          sigsetmask (mask);
+#endif /* SIGALRM */
 
 #ifdef HAVE_GNUTLS
           /* GnuTLS buffers data internally.  In lowat mode it leaves
