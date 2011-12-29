@@ -21,7 +21,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <signal.h>
 #include <stdio.h>
-#include <mbstring.h>
 #include <setjmp.h>
 
 #include "lisp.h"
@@ -39,6 +38,10 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 /* This may include sys/types.h, and that somehow loses
    if this is not done before the other system files.  */
 #include "w32term.h"
+
+#ifndef NTGUI_UNICODE
+#include <mbstring.h>
+#endif /* !NTGUI_UNICODE */
 
 /* Load sys/types.h if not already loaded.
    In some systems loading it twice is suicidal.  */
@@ -76,10 +79,17 @@ typedef int (WINAPI * MessageBoxW_Proc) (
     IN WCHAR *caption,
     IN UINT type);
 
+#ifdef NTGUI_UNICODE
+#define get_menu_item_info GetMenuItemInfoA
+#define set_menu_item_info SetMenuItemInfoA
+#define unicode_append_menu AppendMenuW
+#define unicode_message_box MessageBoxW
+#else /* !NTGUI_UNICODE */
 GetMenuItemInfoA_Proc get_menu_item_info = NULL;
 SetMenuItemInfoA_Proc set_menu_item_info = NULL;
 AppendMenuW_Proc unicode_append_menu = NULL;
 MessageBoxW_Proc unicode_message_box = NULL;
+#endif /* NTGUI_UNICODE */
 
 Lisp_Object Qdebug_on_next_call;
 
@@ -96,6 +106,7 @@ static void utf8to16 (unsigned char *, int, WCHAR *);
 static int fill_in_menu (HMENU, widget_value *);
 
 void w32_free_menu_strings (HWND);
+
 
 
 /* This is set nonzero after the user activates the menu bar, and set
@@ -1393,6 +1404,7 @@ add_menu_item (HMENU menu, widget_value *wv, HMENU item)
                 nlen++;
             }
         }
+#ifndef NTGUI_UNICODE
       else
         {
           /* If encoded with the system codepage, use multibyte string
@@ -1403,6 +1415,7 @@ add_menu_item (HMENU menu, widget_value *wv, HMENU item)
                 nlen++;
             }
         }
+#endif /* !NTGUI_UNICODE */
 
       if (nlen > orig_len)
         {
@@ -1417,6 +1430,7 @@ add_menu_item (HMENU menu, widget_value *wv, HMENU item)
                     *q++ = *p;
                   *q++ = *p++;
                 }
+#ifndef NTGUI_UNICODE
               else
                 {
                   if (_mbsnextc (p) == '&')
@@ -1428,6 +1442,7 @@ add_menu_item (HMENU menu, widget_value *wv, HMENU item)
                   p = _mbsinc (p);
                   q = _mbsinc (q);
                 }
+#endif /* !NTGUI_UNICODE */
             }
           *q = '\0';
         }
@@ -1486,8 +1501,10 @@ add_menu_item (HMENU menu, widget_value *wv, HMENU item)
 	    AppendMenu (menu, fuFlags,
 			item != NULL ? (UINT) item: (UINT) wv->call_data,
 			out_string);
+#ifndef NTGUI_UNICODE
 	  /* Don't use Unicode menus in future.  */
 	  unicode_append_menu = NULL;
+#endif /* !NTGUI_UNICODE */
 	}
 
       if (unicode_append_menu && (fuFlags & MF_OWNERDRAW))
@@ -1709,10 +1726,12 @@ syms_of_w32menu (void)
 void
 globals_of_w32menu (void)
 {
+#ifndef NTGUI_UNICODE
   /* See if Get/SetMenuItemInfo functions are available.  */
   HMODULE user32 = GetModuleHandle ("user32.dll");
   get_menu_item_info = (GetMenuItemInfoA_Proc) GetProcAddress (user32, "GetMenuItemInfoA");
   set_menu_item_info = (SetMenuItemInfoA_Proc) GetProcAddress (user32, "SetMenuItemInfoA");
   unicode_append_menu = (AppendMenuW_Proc) GetProcAddress (user32, "AppendMenuW");
   unicode_message_box = (MessageBoxW_Proc) GetProcAddress (user32, "MessageBoxW");
+#endif /* !NTGUI_UNICODE */
 }

@@ -567,12 +567,14 @@ static void x_laplace (struct frame *, struct image *);
 static void x_emboss (struct frame *, struct image *);
 static int x_build_heuristic_mask (struct frame *, struct image *,
                                    Lisp_Object);
-#ifdef HAVE_NTGUI
+#if WINDOWSNT
+extern Lisp_Object Vlibrary_cache;
+
 #define CACHE_IMAGE_TYPE(type, status) \
   do { Vlibrary_cache = Fcons (Fcons (type, status), Vlibrary_cache); } while (0)
 #else
 #define CACHE_IMAGE_TYPE(type, status)
-#endif
+#endif /* WINDOWSNT */
 
 #define ADD_IMAGE_TYPE(type) \
   do { Vimage_types = Fcons (type, Vimage_types); } while (0)
@@ -1867,7 +1869,7 @@ mark_image_cache (struct image_cache *c)
 			  X / NS / W32 support code
  ***********************************************************************/
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 
 /* Macro for defining functions that will be loaded from image DLLs.  */
 #define DEF_IMGLIB_FN(rettype,func,args) static rettype (FAR CDECL *fn_##func)args
@@ -1878,7 +1880,7 @@ mark_image_cache (struct image_cache *c)
     if (!fn_##func) return 0;						\
   }
 
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
 static int x_create_x_image_and_pixmap (struct frame *, int, int, int,
                                         XImagePtr *, Pixmap *);
@@ -2941,7 +2943,7 @@ xbm_load (struct frame *f, struct image *img)
 	  else
 	    bits = (char *) XBOOL_VECTOR (data)->data;
 
-#ifdef WINDOWSNT
+#ifdef HAVE_NTGUI
           {
             char *invertedBits;
             int nbytes, i;
@@ -3250,7 +3252,7 @@ xpm_free_colors (Display *dpy, Colormap cmap, Pixel *pixels, int npixels, void *
 #endif /* ALLOC_XPM_COLORS */
 
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 
 /* XPM library details.  */
 
@@ -3276,8 +3278,15 @@ init_xpm_functions (Lisp_Object libraries)
   return 1;
 }
 
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
+#ifdef HAVE_NTGUI
+/* Glue for code below */
+#define fn_XpmReadFileToImage XpmReadFileToImage
+#define fn_XpmCreateImageFromBuffer XpmCreateImageFromBuffer
+#define fn_XImageFree XImageFree
+#define fn_XpmFreeAttributes XpmFreeAttributes
+#endif /* HAVE_NTGUI */
 
 /* Value is non-zero if COLOR_SYMBOLS is a valid color symbols list
    for XPM images.  Such a list must consist of conses whose car and
@@ -5427,7 +5436,7 @@ png_image_p (Lisp_Object object)
 
 #ifdef HAVE_PNG
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 /* PNG library details.  */
 
 DEF_IMGLIB_FN (png_voidp, png_get_io_ptr, (png_structp));
@@ -5527,7 +5536,7 @@ init_png_functions (Lisp_Object libraries)
 #define fn_png_set_longjmp_fn		png_set_longjmp_fn
 #endif /* libpng version >= 1.5 */
 
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
 
 #if (PNG_LIBPNG_VER < 10500)
@@ -6059,14 +6068,20 @@ jpeg_image_p (Lisp_Object object)
 #define __WIN32__ 1
 #endif
 
+/* Work around conflict between jpeg boolean and rpcndr.h
+   under Windows. */
+#define boolean jpeg_boolean
 #include <jpeglib.h>
 #include <jerror.h>
+
+/* Don't undefine boolean --- use the JPEG boolean
+   through the rest of the file. */
 
 #ifdef HAVE_STLIB_H_1
 #define HAVE_STDLIB_H 1
 #endif
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 
 /* JPEG library details.  */
 DEF_IMGLIB_FN (void, jpeg_CreateDecompress, (j_decompress_ptr, int, size_t));
@@ -6116,7 +6131,7 @@ jpeg_resync_to_restart_wrapper (j_decompress_ptr cinfo, int desired)
 #define fn_jpeg_std_error		jpeg_std_error
 #define jpeg_resync_to_restart_wrapper	jpeg_resync_to_restart
 
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
 struct my_jpeg_error_mgr
 {
@@ -6599,7 +6614,7 @@ tiff_image_p (Lisp_Object object)
 
 #include <tiffio.h>
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 
 /* TIFF library details.  */
 DEF_IMGLIB_FN (TIFFErrorHandler, TIFFSetErrorHandler, (TIFFErrorHandler));
@@ -6643,7 +6658,7 @@ init_tiff_functions (Lisp_Object libraries)
 #define fn_TIFFReadRGBAImage		TIFFReadRGBAImage
 #define fn_TIFFClose			TIFFClose
 #define fn_TIFFSetDirectory		TIFFSetDirectory
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
 
 /* Reading from a memory buffer for TIFF images Based on the PNG
@@ -7072,7 +7087,7 @@ gif_image_p (Lisp_Object object)
 #endif /* HAVE_NTGUI */
 
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 
 /* GIF library details.  */
 DEF_IMGLIB_FN (int, DGifCloseFile, (GifFileType *));
@@ -7102,7 +7117,7 @@ init_gif_functions (Lisp_Object libraries)
 #define fn_DGifOpen		DGifOpen
 #define fn_DGifOpenFileName	DGifOpenFileName
 
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
 /* Reading a GIF image from memory
    Based on the PNG memory stuff to a certain extent. */
@@ -8092,7 +8107,7 @@ svg_image_p (Lisp_Object object)
 
 #include <librsvg/rsvg.h>
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 
 /* SVG library functions.  */
 DEF_IMGLIB_FN (RsvgHandle *, rsvg_handle_new);
@@ -8170,7 +8185,7 @@ init_svg_functions (Lisp_Object libraries)
 #define fn_g_type_init                    g_type_init
 #define fn_g_object_unref                 g_object_unref
 #define fn_g_error_free                   g_error_free
-#endif /* !HAVE_NTGUI  */
+#endif /* !WINDOWSNT  */
 
 /* Load SVG image IMG for use on frame F.  Value is non-zero if
    successful. this function will go into the svg_type structure, and
@@ -8718,7 +8733,7 @@ DEFUN ("lookup-image", Flookup_image, Slookup_image, 1, 1, 0, "")
 			    Initialization
  ***********************************************************************/
 
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
 /* Image types that rely on external libraries are loaded dynamically
    if the library is available.  */
 #define CHECK_LIB_AVAILABLE(image_type, init_lib_fn, libraries) \
@@ -8726,7 +8741,7 @@ DEFUN ("lookup-image", Flookup_image, Slookup_image, 1, 1, 0, "")
 #else
 #define CHECK_LIB_AVAILABLE(image_type, init_lib_fn, libraries) \
   define_image_type (image_type, 1)
-#endif /* HAVE_NTGUI */
+#endif /* WINDOWSNT */
 
 DEFUN ("init-image-library", Finit_image_library, Sinit_image_library, 2, 2, 0,
        doc: /* Initialize image library implementing image type TYPE.
@@ -8737,7 +8752,7 @@ Libraries to load are specified in alist LIBRARIES (usually, the value
 of `dynamic-library-alist', which see).  */)
   (Lisp_Object type, Lisp_Object libraries)
 {
-#ifdef HAVE_NTGUI
+#ifdef WINDOWSNT
   /* Don't try to reload the library.  */
   Lisp_Object tested = Fassq (type, Vlibrary_cache);
   if (CONSP (tested))

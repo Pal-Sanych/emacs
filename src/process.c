@@ -4605,6 +4605,7 @@ wait_reading_process_output (int time_limit, int microsecs, int read_kbd,
 	      process_output_skip = 0;
 	    }
 #endif
+
 #if defined (USE_GTK) || defined (HAVE_GCONF) || defined (HAVE_GSETTINGS)
           nfds = xg_select
 #elif defined (HAVE_NS)

@@ -95,3 +95,14 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* Send signals to subprocesses by "typing" special chars at them.  */
 #define SIGNALS_VIA_CHARACTERS
+
+#ifdef EMACSDEBUG
+extern void _DebPrint (const char *fmt, ...);
+#define DebPrint(stuff) _DebPrint stuff
+#else
+#define DebPrint(stuff)
+#endif
+
+/* Cygwin runs only on Win2k or better, and never 9x.  */
+#define NTGUI_UNICODE 1
+#define _WIN32_WINNT 0x500 /* Win2k */
