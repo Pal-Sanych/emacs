@@ -1,4 +1,4 @@
-;;; subword.el --- Handling capitalized subwords in a nomenclature
+;;; subword.el --- Handling capitalized subwords in a nomenclature -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2004-2011 Free Software Foundation, Inc.
 
@@ -25,8 +25,11 @@
 ;; useful in general and not tied to C and c-mode at all.
 
 ;; This package provides `subword' oriented commands and a minor mode
-;; (`subword-mode') that substitutes the common word handling
-;; functions with them.
+;; (`subword-mode') that changes the definition of a "word" so that
+;; Emacs will see subword bounaries as word boundaries in normal
+;; movement commands.  Previously, `subword-mode' substituted the
+;; normal word-movement commands with the subword-oriented versions at
+;; the keymap level.
 
 ;; In spite of GNU Coding Standards, it is popular to name a symbol by
 ;; mixing uppercase and lowercase letters, e.g. "GtkWidget",
@@ -45,25 +48,6 @@
 ;; subwords in a nomenclature to move between them and to edit them as
 ;; words.
 
-;; In the minor mode, all common key bindings for word oriented
-;; commands are overridden by the subword oriented commands:
-
-;; Key     Word oriented command      Subword oriented command
-;; ============================================================
-;; M-f     `forward-word'             `subword-forward'
-;; M-b     `backward-word'            `subword-backward'
-;; M-@     `mark-word'                `subword-mark'
-;; M-d     `kill-word'                `subword-kill'
-;; M-DEL   `backward-kill-word'       `subword-backward-kill'
-;; M-t     `transpose-words'          `subword-transpose'
-;; M-c     `capitalize-word'          `subword-capitalize'
-;; M-u     `upcase-word'              `subword-upcase'
-;; M-l     `downcase-word'            `subword-downcase'
-;;
-;; Note: If you have changed the key bindings for the word oriented
-;; commands in your .emacs or a similar place, the keys you've changed
-;; to are also used for the corresponding subword oriented commands.
-
 ;; To make the mode turn on automatically, put the following code in
 ;; your .emacs:
 ;;
@@ -76,21 +60,28 @@
 ;; the old `c-forward-into-nomenclature' originally contributed by
 ;; Terry_Glanfield dot Southern at rxuk dot xerox dot com.
 
-;; TODO: ispell-word.
-
 ;;; Code:
 
 (defvar subword-mode-map
-  (let ((map (make-sparse-keymap)))
-    (dolist (cmd '(forward-word backward-word mark-word kill-word
-				backward-kill-word transpose-words
-                                capitalize-word upcase-word downcase-word))
-      (let ((othercmd (let ((name (symbol-name cmd)))
-                        (string-match "\\([[:alpha:]-]+\\)-word[s]?" name)
-                        (intern (concat "subword-" (match-string 1 name))))))
-        (define-key map (vector 'remap cmd) othercmd)))
-    map)
+  ;; Leave an empty keymap present so user customization that modify
+  ;; it keep working.
+  (make-sparse-keymap)
   "Keymap used in `subword-mode' minor mode.")
+
+(defconst subword-find-word-boundary-function-table
+  (let ((tab (make-char-table nil)))
+    (set-char-table-range tab t #'subword-find-word-boundary)
+    tab)
+  "Assigned to `find-word-boundary-function-table' in `subword-mode'.")
+
+(defconst subword-empty-char-table
+  (make-char-table nil)
+  "Assigned to `find-word-boundary-function-table' while we're searching
+subwords in order to avoid unwanted reentrancy.")
+
+;;;###autoload
+(define-obsolete-function-alias
+  'capitalized-words-mode 'subword-mode "24.1")
 
 ;;;###autoload
 (define-minor-mode subword-mode
@@ -99,8 +90,8 @@ With a prefix argument ARG, enable Subword mode if ARG is
 positive, and disable it otherwise.  If called from Lisp, enable
 the mode if ARG is omitted or nil.
 
-Subword mode is a buffer-local minor mode.  Enabling it remaps
-word-based editing commands to subword-based commands that handle
+Subword mode is a buffer-local minor mode.  Enabling it changes
+the definition of a word so that word-based commands stop inside
 symbols with mixed uppercase and lowercase letters,
 e.g. \"GtkWidget\", \"EmacsFrameClass\", \"NSGraphicsContext\".
 
@@ -114,14 +105,19 @@ called a `subword'.  Here are some examples:
   EmacsFrameClass    =>  \"Emacs\", \"Frame\" and \"Class\"
   NSGraphicsContext  =>  \"NS\", \"Graphics\" and \"Context\"
 
-The subword oriented commands activated in this minor mode recognize
-subwords in a nomenclature to move between subwords and to edit them
-as words.
+When this mode is enabled, word-oriented commands recognize
+subwords in a nomenclature to move between subwords and treat
+them as words.
 
 \\{subword-mode-map}"
     nil
     nil
-    subword-mode-map)
+    subword-mode-map
+
+    (set (make-local-variable 'find-word-boundary-function-table)
+         (if subword-mode
+             subword-find-word-boundary-function-table
+           subword-empty-char-table)))
 
 (define-obsolete-function-alias 'c-subword-mode 'subword-mode "23.2")
 
@@ -248,37 +244,49 @@ Optional argument ARG is the same as for `capitalize-word'."
 (defun subword-forward-internal ()
   (if (and
        (save-excursion
-	 (let ((case-fold-search nil))
-	   (re-search-forward
-	    (concat "\\W*\\(\\([[:upper:]]*\\W?\\)[[:lower:][:digit:]]*\\)")
-	    nil t)))
+         (let ((case-fold-search nil))
+           (re-search-forward
+            (concat "\\W*\\(\\([[:upper:]]*\\W?\\)[[:lower:][:digit:]]*\\)")
+            nil t)))
        (> (match-end 0) (point)))
       (goto-char
        (cond
-	((< 1 (- (match-end 2) (match-beginning 2)))
-	 (1- (match-end 2)))
-	(t
-	 (match-end 0))))
+        ((< 1 (- (match-end 2) (match-beginning 2)))
+         (1- (match-end 2)))
+        (t
+         (match-end 0))))
     (forward-word 1)))
-
 
 (defun subword-backward-internal ()
   (if (save-excursion
-	(let ((case-fold-search nil))
-	  (re-search-backward
-	   (concat
-	    "\\(\\(\\W\\|[[:lower:][:digit:]]\\)\\([[:upper:]]+\\W*\\)"
-	    "\\|\\W\\w+\\)")
-	   nil t)))
+        (let ((case-fold-search nil))
+          (re-search-backward
+           (concat
+            "\\(\\(\\W\\|[[:lower:][:digit:]]\\)\\([[:upper:]]+\\W*\\)"
+            "\\|\\W\\w+\\)")
+           nil t)))
       (goto-char
        (cond
-	((and (match-end 3)
-	      (< 1 (- (match-end 3) (match-beginning 3)))
-	      (not (eq (point) (match-end 3))))
-	 (1- (match-end 3)))
-	(t
-	 (1+ (match-beginning 0)))))
+        ((and (match-end 3)
+              (< 1 (- (match-end 3) (match-beginning 3)))
+              (not (eq (point) (match-end 3))))
+         (1- (match-end 3)))
+        (t
+         (1+ (match-beginning 0)))))
     (backward-word 1)))
+
+(defun subword-find-word-boundary (pos limit)
+  (let ((find-word-boundary-function-table subword-empty-char-table))
+    (save-match-data
+      (save-excursion
+        (save-restriction
+          (if (< pos limit)
+              (progn
+                (narrow-to-region (point-min) limit)
+                (subword-forward-internal))
+            (narrow-to-region limit (point-max))
+            (subword-backward-internal))
+          (point))))))
 
 
 (provide 'subword)
