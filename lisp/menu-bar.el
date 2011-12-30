@@ -34,6 +34,8 @@
 ;; From emulation/cua-base.el; used below
 (defvar cua-enable-cua-keys)
 
+;; From progmodes/subword.el; used below
+(defvar global-subword-mode)
 
 ;; Don't clobber an existing menu-bar keymap, to preserve any menu-bar key
 ;; definitions made in loaddefs.el.
@@ -1294,6 +1296,12 @@ mail status in mode line"))
        "Use shifted movement keys to set and extend the region"
        (:visible (and (boundp 'cua-enable-cua-keys)
 		      (not cua-enable-cua-keys)))))
+
+    (define-key menu [subword-mode]
+      (menu-bar-make-mm-toggle
+       global-subword-mode
+       "Treat WordsWithCaps as separate words"
+       "Treat each capitalized part of a word as a separate word"))
 
     (define-key menu [case-fold-search]
       (menu-bar-make-toggle
